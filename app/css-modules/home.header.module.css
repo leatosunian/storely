@@ -1,0 +1,9 @@
+.navCont {
+  padding: 0 8%;
+}
+
+@media (max-width: 1224px) {
+  .navCont {
+    padding: 0 1rem;
+  }
+}

@@ -1,0 +1,108 @@
+.parallaxCont {
+  background-image: url(/dealership2.webp);
+  height: fit-content;
+  width: 100%;
+  background-attachment: fixed;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  display: flex;
+  position: relative;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  color: white;
+  overflow: hidden;
+  padding: 200px 10%;
+}
+
+.parallaxCont::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5); /* Color negro con opacidad del 50% */
+  z-index: -1; /* Asegura que el contenido del div se vea por encima */
+}
+
+.content {
+  position: relative;
+  z-index: 2;
+}
+
+.button {
+  appearance: none;
+  background-color: #991b1b;
+  border: 0em solid #ebebeb;
+  border-radius: 8px;
+  box-sizing: border-box;
+  color: white;
+  cursor: pointer;
+  display: inline-block;
+  font-family: Roobert, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica,
+    Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 14px;
+  font-weight: 600;
+  line-height: normal;
+  margin: 0;
+  width: fit-content;
+  outline: none;
+  padding: 0.8em 2em;
+  text-align: center;
+  text-decoration: none;
+  transition: all 300ms cubic-bezier(0.23, 1, 0.32, 1);
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  will-change: transform;
+  -webkit-border-radius: 8px;
+  -moz-border-radius: 8px;
+  -ms-border-radius: 8px;
+  -o-border-radius: 8px;
+}
+
+.button:disabled {
+  pointer-events: none;
+}
+
+.button:hover {
+  color: #fff;
+  background-color: rgb(133, 0, 0);
+  box-shadow: rgba(0, 0, 0, 0.082) 0 8px 15px;
+  transform: translateY(-2px);
+}
+
+.button:active {
+  box-shadow: none;
+  transform: translateY(0);
+}
+
+@media (max-width: 768px) {
+  .parallaxCont {
+    background-image: url(/dealership2.webp);
+    height: calc(100vh - 64px);
+    width: 100%;
+    background-attachment: fixed;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+    display: flex;
+    position: relative;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    color: white;
+    overflow: hidden;
+    padding: 0px 10%;
+  }
+}
+
+@media (max-width: 1400px) {
+  .parallaxCont {
+    height: calc(100vh - 64px);
+
+    padding: 0px 10%;
+  }
+}

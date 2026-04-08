@@ -1,0 +1,12 @@
+.navCont {
+  padding-left: 70px;
+  padding-right: 55px;
+  position: fixed;
+  width: 100vw;
+}
+
+@media (max-width: 1024px) {
+  .navCont {
+    padding: 0 1rem;
+  }
+}
