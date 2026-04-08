@@ -10,6 +10,7 @@ export interface IAdminSession {
 
 export const authConfig = {
   providers: [],
+  trustHost: true,
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
