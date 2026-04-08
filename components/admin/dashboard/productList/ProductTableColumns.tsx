@@ -34,26 +34,6 @@ export const ProductTableColumns = ({
   onCopyPrice
 }: ProductTableColumnsProps): ColumnDef<IProduct>[] => [
     {
-      id: "expand",
-      enableHiding: false,
-      header: () => null,
-      cell: ({ row }) => {
-        if (!row.original.hasVariants) return null;
-        return (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-6 h-6 p-0"
-            onClick={() => row.toggleExpanded()}
-          >
-            {row.getIsExpanded()
-              ? <ChevronDown size={14} />
-              : <ChevronRight size={14} />}
-          </Button>
-        );
-      },
-    },
-    {
       id: "select",
       header: ({ table }) => (
         <Checkbox
@@ -76,36 +56,6 @@ export const ProductTableColumns = ({
       enableHiding: false,
     },
     {
-      id: "thumbnail",
-      enableHiding: false,
-      enableSorting: false,
-      header: () => null,
-      cell: ({ row }) => {
-        const gallery = row.original.gallery;
-        const first = Array.isArray(gallery) && gallery.length > 0 ? gallery[0] : null;
-
-        if (!first) {
-          return (
-            <div className="flex items-center justify-center w-9 h-9 rounded bg-muted/60">
-              <CameraOff size={16} className="text-muted-foreground/50" />
-            </div>
-          );
-        }
-
-        return (
-          <Image
-            src={cloudinaryThumb(first.url)}
-            alt={row.original.nombre}
-            width={36}
-            height={36}
-            className="rounded object-cover"
-            loading="lazy"
-          />
-        );
-      },
-      size: 52,
-    },
-    {
       accessorKey: "nombre",
       header: ({ column }) => {
         return (
@@ -116,6 +66,44 @@ export const ProductTableColumns = ({
             Producto
             <ArrowUpDown size={14} className="hidden ml-2 md:block" />
           </span>
+        );
+      },
+      cell: ({ row }) => {
+        const gallery = row.original.gallery;
+        const first = Array.isArray(gallery) && gallery.length > 0 ? gallery[0] : null;
+
+        return (
+          <div className="flex items-center gap-3">
+            {row.original.hasVariants ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-6 h-6 p-0 shrink-0"
+                onClick={() => row.toggleExpanded()}
+              >
+                {row.getIsExpanded()
+                  ? <ChevronDown size={14} />
+                  : <ChevronRight size={14} />}
+              </Button>
+            ) : (
+              <span className="w-6 shrink-0" />
+            )}
+            {first ? (
+              <Image
+                src={cloudinaryThumb(first.url)}
+                alt={row.original.nombre}
+                width={36}
+                height={36}
+                className="rounded object-cover shrink-0"
+                loading="lazy"
+              />
+            ) : (
+              <div className="flex items-center justify-center w-9 h-9 rounded bg-muted/60 shrink-0">
+                <CameraOff size={16} className="text-muted-foreground/50" />
+              </div>
+            )}
+            <span>{row.original.nombre}</span>
+          </div>
         );
       },
     },
