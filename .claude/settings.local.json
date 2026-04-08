@@ -39,7 +39,8 @@
       "Bash(node node_modules/next/dist/bin/next build)",
       "Bash(find /d/projects/storely/app/api -type f -name *.ts -o -type f -name *.tsx)",
       "Bash(node -e ':*)",
-      "Bash(find /d/projects/storely -type f \\\\\\( -name \"*.ts\" -o -name \"*.tsx\" -o -name \"*.js\" \\\\\\) -exec grep -l \"cloudinary\\\\|next-cloudinary\" {} \\\\;)"
+      "Bash(find /d/projects/storely -type f \\\\\\( -name \"*.ts\" -o -name \"*.tsx\" -o -name \"*.js\" \\\\\\) -exec grep -l \"cloudinary\\\\|next-cloudinary\" {} \\\\;)",
+      "Bash(find /d/projects/storely -type f \\\\\\( -name \"*.tsx\" -o -name \"*.ts\" \\\\\\) ! -path \"*/node_modules/*\" ! -path \"*/.next/*\" -exec grep -l \"\\\\.module\" {} \\\\;)"
     ]
   }
 }

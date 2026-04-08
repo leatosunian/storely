@@ -3,7 +3,7 @@ import { IOrder } from "@/interfaces/IOrder";
 import connectDB from "@/lib/db/db";
 import { CustomerModel } from "@/lib/db/models/customer";
 import { OrderModel } from "@/lib/db/models/order";
-import { FilterQuery } from "mongoose";
+import { ClientSession, FilterQuery } from "mongoose";
 import mongoose from "mongoose";
 
 // Genera un número de pedido único con formato: ORD-2024-12345
