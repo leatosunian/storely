@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { LocaleNumberInput } from "@/components/admin/dashboard/productList/LocaleNumberInput";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,6 +33,7 @@ interface Variant {
   attributes: Record<string, string>;
   isDefault: boolean;
   priceDelta: number;
+  customPrice?: number;
   barcode?: string;
 }
 
@@ -42,12 +44,14 @@ interface VariantsManagerProps {
 interface EditingState {
   sku: string;
   priceDelta: string;
+  customPrice: string;
   barcode: string;
 }
 
 interface NewVariantState {
   sku: string;
   priceDelta: string;
+  customPrice: string;
   barcode: string;
   attributeKey: string;
   attributeValue: string;
@@ -56,6 +60,7 @@ interface NewVariantState {
 const DEFAULT_NEW: NewVariantState = {
   sku: "",
   priceDelta: "0",
+  customPrice: "",
   barcode: "",
   attributeKey: "",
   attributeValue: "",
@@ -66,7 +71,7 @@ export function VariantsManager({ productId }: VariantsManagerProps) {
   const [variants, setVariants] = useState<Variant[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingState, setEditingState] = useState<EditingState>({ sku: "", priceDelta: "0", barcode: "" });
+  const [editingState, setEditingState] = useState<EditingState>({ sku: "", priceDelta: "0", customPrice: "", barcode: "" });
   const [savingId, setSavingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -101,6 +106,7 @@ export function VariantsManager({ productId }: VariantsManagerProps) {
     setEditingState({
       sku: v.sku,
       priceDelta: v.priceDelta.toString(),
+      customPrice: v.customPrice != null ? v.customPrice.toString() : "",
       barcode: v.barcode ?? "",
     });
   }
@@ -118,6 +124,7 @@ export function VariantsManager({ productId }: VariantsManagerProps) {
         body: JSON.stringify({
           sku: editingState.sku,
           priceDelta: parseFloat(editingState.priceDelta) || 0,
+          customPrice: editingState.customPrice !== "" ? parseFloat(editingState.customPrice) || 0 : undefined,
           barcode: editingState.barcode || undefined,
           attributes: variants.find((v) => v._id === id)?.attributes ?? {},
         }),
@@ -178,6 +185,7 @@ export function VariantsManager({ productId }: VariantsManagerProps) {
         body: JSON.stringify({
           sku: newVariant.sku,
           priceDelta: parseFloat(newVariant.priceDelta) || 0,
+          customPrice: newVariant.customPrice !== "" ? parseFloat(newVariant.customPrice) || 0 : undefined,
           barcode: newVariant.barcode || undefined,
           attributes,
         }),
@@ -218,10 +226,11 @@ export function VariantsManager({ productId }: VariantsManagerProps) {
           {/* Header */}
           <div
             className="grid px-3 py-2 bg-muted/50 text-xs font-medium text-muted-foreground"
-            style={{ gridTemplateColumns: "1fr 1fr 90px 120px 72px" }}
+            style={{ gridTemplateColumns: "1fr 1fr 110px 90px 120px 72px" }}
           >
             <span>Atributos</span>
             <span>SKU</span>
+            <span>Precio</span>
             <span>Δ Precio</span>
             <span>Cód. barras</span>
             <span />
@@ -236,7 +245,7 @@ export function VariantsManager({ productId }: VariantsManagerProps) {
               <div
                 key={v._id}
                 className="grid items-center gap-2 px-3 py-2"
-                style={{ gridTemplateColumns: "1fr 1fr 90px 120px 72px" }}
+                style={{ gridTemplateColumns: "1fr 1fr 110px 90px 120px 72px" }}
               >
                 {/* Attributes */}
                 <div className="flex flex-wrap gap-1">
@@ -265,16 +274,34 @@ export function VariantsManager({ productId }: VariantsManagerProps) {
                   <span className="text-xs font-mono text-muted-foreground truncate">{v.sku}</span>
                 )}
 
+                {/* Custom price */}
+                {isEditing ? (
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-muted-foreground">$</span>
+                    <LocaleNumberInput
+                      className="h-8 text-xs"
+                      placeholder="Heredado"
+                      value={editingState.customPrice}
+                      onChange={(v) => setEditingState((s) => ({ ...s, customPrice: v ? v.toString() : "" }))}
+                    />
+                  </div>
+                ) : (
+                  <span className="text-xs text-muted-foreground">
+                    {v.customPrice != null
+                      ? new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(v.customPrice)
+                      : "Heredado"}
+                  </span>
+                )}
+
                 {/* Price delta */}
                 {isEditing ? (
                   <div className="flex items-center gap-1">
                     <span className="text-xs text-muted-foreground">$</span>
-                    <Input
-                      type="number"
-                      step="0.01"
+                    <LocaleNumberInput
                       className="h-8 text-xs"
+                      placeholder="0"
                       value={editingState.priceDelta}
-                      onChange={(e) => setEditingState((s) => ({ ...s, priceDelta: e.target.value }))}
+                      onChange={(v) => setEditingState((s) => ({ ...s, priceDelta: v.toString() }))}
                     />
                   </div>
                 ) : (
@@ -414,8 +441,8 @@ export function VariantsManager({ productId }: VariantsManagerProps) {
             </Button>
           </div>
 
-          {/* SKU + delta + barcode */}
-          <div className="grid grid-cols-3 gap-3">
+          {/* SKU + price + delta + barcode */}
+          <div className="grid grid-cols-4 gap-3">
             <div className="space-y-1">
               <label className="text-xs text-muted-foreground">SKU *</label>
               <Input
@@ -426,13 +453,21 @@ export function VariantsManager({ productId }: VariantsManagerProps) {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Δ Precio ($)</label>
-              <Input
-                type="number"
-                step="0.01"
+              <label className="text-xs text-muted-foreground">Precio ($)</label>
+              <LocaleNumberInput
                 className="h-8 text-xs"
+                placeholder="Heredado"
+                value={newVariant.customPrice}
+                onChange={(v) => setNewVariant((s) => ({ ...s, customPrice: v ? v.toString() : "" }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Δ Precio ($)</label>
+              <LocaleNumberInput
+                className="h-8 text-xs"
+                placeholder="0"
                 value={newVariant.priceDelta}
-                onChange={(e) => setNewVariant((s) => ({ ...s, priceDelta: e.target.value }))}
+                onChange={(v) => setNewVariant((s) => ({ ...s, priceDelta: v.toString() }))}
               />
             </div>
             <div className="space-y-1">

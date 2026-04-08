@@ -460,6 +460,7 @@ export function CreateProductForm() {
                 <Separator />
                 <VariantsBuilder
                   productName={form.watch("nombre")}
+                  basePrice={computedPublicPrice ?? undefined}
                   onChange={(rows, schema) => {
                     setVariantRows(rows);
                     setAttributeSchema(schema);

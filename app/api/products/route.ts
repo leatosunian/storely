@@ -35,6 +35,7 @@ export async function POST(request: NextRequest) {
           sku: v.sku,
           attributes: v.attributes ?? {},
           priceDelta: Number(v.priceDelta) || 0,
+          customPrice: v.customPrice != null ? Number(v.customPrice) : undefined,
           barcode: v.barcode || undefined,
         })),
       });

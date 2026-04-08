@@ -35,6 +35,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
+import { LocaleNumberInput } from "@/components/admin/dashboard/productList/LocaleNumberInput";
 import { IProduct, IProductImage } from "@/interfaces/IProduct";
 import { VariantsManager } from "@/components/admin/dashboard/productList/VariantsManager";
 import { ProductGallery } from "@/components/admin/dashboard/productList/ProductGallery";
@@ -482,7 +483,10 @@ export default function EditProductPage() {
                       <FormControl>
                         <div className="flex items-center gap-2">
                           <span className="text-sm text-muted-foreground font-semibold shrink-0">$</span>
-                          <Input type="number" step="0.01" min="0" {...field} />
+                          <LocaleNumberInput
+                            placeholder="0,00"
+                            {...field}
+                          />
                         </div>
                       </FormControl>
                       <FormMessage />
@@ -498,7 +502,10 @@ export default function EditProductPage() {
                       <FormControl>
                         <div className="flex items-center gap-2">
                           <span className="text-sm text-muted-foreground font-semibold shrink-0">%</span>
-                          <Input type="number" step="0.01" min="0" {...field} />
+                          <LocaleNumberInput
+                            placeholder="30"
+                            {...field}
+                          />
                         </div>
                       </FormControl>
                       <FormMessage />

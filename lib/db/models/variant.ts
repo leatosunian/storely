@@ -8,6 +8,7 @@ const variantSchema = new Schema<IVariant>(
         attributes: { type: Schema.Types.Mixed, default: {} },
         isDefault: { type: Boolean, default: false },
         priceDelta: { type: Number, default: 0 },
+        customPrice: { type: Number },
         barcode: { type: String },
         isActive: { type: Boolean, default: true, index: true },
     },

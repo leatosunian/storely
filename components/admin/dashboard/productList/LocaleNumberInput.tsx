@@ -103,6 +103,7 @@ export const LocaleNumberInput = React.forwardRef<
       onChange(parsed);
     } else if (display === "") {
       setDisplay("");
+      onChange(0);
     }
     onBlur?.();
   };
@@ -139,6 +140,8 @@ export const LocaleNumberInput = React.forwardRef<
     const parsed = parseLocale(formatted);
     if (!isNaN(parsed)) {
       onChange(parsed);
+    } else if (formatted === "") {
+      onChange(0);
     }
   };
 

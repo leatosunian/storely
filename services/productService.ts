@@ -70,6 +70,7 @@ export interface VariantInput {
   sku: string;
   attributes: Record<string, string>;
   priceDelta: number;
+  customPrice?: number;
   barcode?: string;
 }
 
@@ -106,6 +107,7 @@ export async function createProductWithVariants(data: CreateProductWithVariantsD
       attributes: v.attributes,
       isDefault: false,
       priceDelta: v.priceDelta ?? 0,
+      customPrice: v.customPrice ?? undefined,
       barcode: v.barcode || undefined,
       isActive: true,
     }));
@@ -146,6 +148,7 @@ export async function addVariantToProduct(productId: string, variantInput: Varia
     attributes: variantInput.attributes,
     isDefault: false,
     priceDelta: variantInput.priceDelta ?? 0,
+    customPrice: variantInput.customPrice ?? undefined,
     barcode: variantInput.barcode || undefined,
     isActive: true,
   });

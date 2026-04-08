@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { IAttributeDefinition } from "@/interfaces/IProduct";
+import { LocaleNumberInput } from "@/components/admin/dashboard/productList/LocaleNumberInput";
 
 export interface VariantRow {
   /** local key used for React lists — not sent to API */
@@ -25,6 +26,8 @@ export interface VariantRow {
   attributes: Record<string, string>;
   priceDelta: number;
   barcode?: string;
+  /** Per-variant price override. When undefined, inherits the product's public price. */
+  customPrice?: number;
 }
 
 interface AttributeAxis {
@@ -35,6 +38,8 @@ interface AttributeAxis {
 
 interface VariantsBuilderProps {
   productName?: string;
+  /** The computed public price of the product — used as default customPrice for new variants */
+  basePrice?: number;
   onChange: (variants: VariantRow[], attributeSchema: IAttributeDefinition[]) => void;
 }
 
@@ -57,14 +62,30 @@ function slugify(str: string) {
     .replace(/^-|-$/g, "");
 }
 
-function buildRows(axes: AttributeAxis[], productName: string, existing: VariantRow[]): VariantRow[] {
+function buildRows(axes: AttributeAxis[], productName: string, existing: VariantRow[], basePrice?: number): VariantRow[] {
   const validAxes = axes.filter((a) => a.key.trim() && a.valuesRaw.trim());
   if (validAxes.length === 0) return [];
 
-  const keys = validAxes.map((a) => a.key.trim());
-  const valueSets = validAxes.map((a) =>
-    a.valuesRaw.split(",").map((v) => v.trim()).filter(Boolean)
-  );
+  // Merge axes that share the same key into a single axis
+  const merged = new Map<string, string[]>();
+  const keyOrder: string[] = [];
+  for (const axis of validAxes) {
+    const key = axis.key.trim();
+    const vals = axis.valuesRaw.split(",").map((v) => v.trim()).filter(Boolean);
+    if (merged.has(key)) {
+      // Add only values not already present
+      const existing = merged.get(key)!;
+      for (const v of vals) {
+        if (!existing.includes(v)) existing.push(v);
+      }
+    } else {
+      merged.set(key, [...vals]);
+      keyOrder.push(key);
+    }
+  }
+
+  const keys = keyOrder;
+  const valueSets = keyOrder.map((k) => merged.get(k)!);
   const combos = cartesian(valueSets);
 
   return combos.map((combo) => {
@@ -86,24 +107,38 @@ function buildRows(axes: AttributeAxis[], productName: string, existing: Variant
       attributes,
       priceDelta: existingRow ? existingRow.priceDelta : 0,
       barcode: existingRow ? existingRow.barcode : "",
+      customPrice: existingRow?.customPrice ?? basePrice ?? undefined,
     };
   });
 }
 
 function buildSchema(axes: AttributeAxis[]): IAttributeDefinition[] {
-  return axes
-    .filter((a) => a.key.trim() && a.valuesRaw.trim())
-    .map((a, i) => ({
-      key: a.key.trim(),
-      label: a.key.trim(),
-      values: a.valuesRaw.split(",").map((v) => v.trim()).filter(Boolean),
-      order: i,
-    }));
+  const validAxes = axes.filter((a) => a.key.trim() && a.valuesRaw.trim());
+  const merged = new Map<string, { values: string[]; order: number }>();
+  let orderIdx = 0;
+  for (const axis of validAxes) {
+    const key = axis.key.trim();
+    const vals = axis.valuesRaw.split(",").map((v) => v.trim()).filter(Boolean);
+    if (merged.has(key)) {
+      const entry = merged.get(key)!;
+      for (const v of vals) {
+        if (!entry.values.includes(v)) entry.values.push(v);
+      }
+    } else {
+      merged.set(key, { values: [...vals], order: orderIdx++ });
+    }
+  }
+  return Array.from(merged.entries()).map(([key, { values, order }]) => ({
+    key,
+    label: key,
+    values,
+    order,
+  }));
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function VariantsBuilder({ productName = "", onChange }: VariantsBuilderProps) {
+export function VariantsBuilder({ productName = "", basePrice, onChange }: VariantsBuilderProps) {
   const uid = useId();
   const [axes, setAxes] = useState<AttributeAxis[]>([
     { id: `${uid}-0`, key: "", valuesRaw: "" },
@@ -118,9 +153,9 @@ export function VariantsBuilder({ productName = "", onChange }: VariantsBuilderP
   // ── Rebuild rows when axes / productName change ──────────────────────────
   // NOTE: do NOT call onChange inside setRows — that would be setState-during-render.
   useEffect(() => {
-    setRows((prev) => buildRows(axes, productName, prev));
+    setRows((prev) => buildRows(axes, productName, prev, basePrice));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [axes, productName]);
+  }, [axes, productName, basePrice]);
 
   // ── Notify parent AFTER rows state has been committed ───────────────────
   // This effect runs after every committed render where rows or axes changed.
@@ -150,7 +185,13 @@ export function VariantsBuilder({ productName = "", onChange }: VariantsBuilderP
   // Plain setRows — the "notify parent" effect fires afterwards automatically.
 
   function updateRow(key: string, field: keyof VariantRow, value: string | number) {
-    setRows((prev) => prev.map((r) => (r._key === key ? { ...r, [field]: value } : r)));
+    setRows((prev) => prev.map((r) => {
+      if (r._key !== key) return r;
+      if (field === "customPrice" && value === "") {
+        return { ...r, customPrice: undefined };
+      }
+      return { ...r, [field]: value };
+    }));
   }
 
   function regenerateSkus() {
@@ -242,10 +283,11 @@ export function VariantsBuilder({ productName = "", onChange }: VariantsBuilderP
               {/* Header */}
               <div
                 className="grid bg-muted/50 px-3 py-2 text-xs font-medium text-muted-foreground border-b"
-                style={{ gridTemplateColumns: "1fr 1fr 100px 130px" }}
+                style={{ gridTemplateColumns: "1fr 1fr 120px 100px 130px" }}
               >
                 <span>Atributos</span>
                 <span>SKU</span>
+                <span>Precio</span>
                 <span>Δ Precio</span>
                 <span>Código de barras</span>
               </div>
@@ -256,7 +298,7 @@ export function VariantsBuilder({ productName = "", onChange }: VariantsBuilderP
                   <div
                     key={row._key}
                     className="grid items-center gap-2 px-3 py-2"
-                    style={{ gridTemplateColumns: "1fr 1fr 100px 130px" }}
+                    style={{ gridTemplateColumns: "1fr 1fr 120px 100px 130px" }}
                   >
                     <div className="flex flex-wrap gap-1">
                       {Object.entries(row.attributes).map(([k, v]) => (
@@ -275,14 +317,21 @@ export function VariantsBuilder({ productName = "", onChange }: VariantsBuilderP
 
                     <div className="flex items-center gap-1">
                       <span className="text-xs text-muted-foreground shrink-0">$</span>
-                      <Input
-                        type="number"
-                        step="0.01"
+                      <LocaleNumberInput
                         className="h-8 text-xs"
+                        placeholder={basePrice ? new Intl.NumberFormat("es-AR", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(basePrice) : "Heredado"}
+                        value={row.customPrice ?? ""}
+                        onChange={(v) => updateRow(row._key, "customPrice", v || "")}
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-muted-foreground shrink-0">$</span>
+                      <LocaleNumberInput
+                        className="h-8 text-xs"
+                        placeholder="0"
                         value={row.priceDelta}
-                        onChange={(e) =>
-                          updateRow(row._key, "priceDelta", parseFloat(e.target.value) || 0)
-                        }
+                        onChange={(v) => updateRow(row._key, "priceDelta", v)}
                       />
                     </div>
 
@@ -301,7 +350,8 @@ export function VariantsBuilder({ productName = "", onChange }: VariantsBuilderP
             </div>
 
             <p className="mt-2 text-xs text-muted-foreground">
-              <span className="font-medium">Δ Precio</span>: ajuste sobre el precio al público del producto (puede ser negativo).
+              <span className="font-medium">Precio</span>: precio individual de la variante (vacío = hereda el precio del producto).
+              {" "}<span className="font-medium">Δ Precio</span>: ajuste adicional (puede ser negativo).
             </p>
           </div>
         </>

@@ -32,6 +32,7 @@ export async function POST(
       sku: body.sku,
       attributes: body.attributes ?? {},
       priceDelta: Number(body.priceDelta) || 0,
+      customPrice: body.customPrice != null ? Number(body.customPrice) : undefined,
       barcode: body.barcode || undefined,
     });
 

@@ -27,14 +27,23 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
 
+    const setFields: Record<string, any> = {
+      sku: body.sku?.toUpperCase().trim(),
+      attributes: body.attributes,
+      priceDelta: Number(body.priceDelta) || 0,
+      barcode: body.barcode || undefined,
+    };
+
+    const updateOp: Record<string, any> = { $set: setFields };
+    if (body.customPrice != null) {
+      setFields.customPrice = Number(body.customPrice);
+    } else {
+      updateOp.$unset = { customPrice: 1 };
+    }
+
     const updated = await VariantModel.findByIdAndUpdate(
       id,
-      {
-        sku: body.sku?.toUpperCase().trim(),
-        attributes: body.attributes,
-        priceDelta: Number(body.priceDelta) || 0,
-        barcode: body.barcode || undefined,
-      },
+      updateOp,
       { new: true, runValidators: true }
     );
 
