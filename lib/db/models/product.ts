@@ -6,6 +6,7 @@ const productSchema = new Schema<IProduct>(
     nombre: { type: String, required: true },
     marca:  { type: String },
     modelo: { type: String },
+    internalCode: { type: String, trim: true },
     categoryId: {
       type: Schema.Types.ObjectId,
       ref: "categories",

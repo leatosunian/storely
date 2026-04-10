@@ -113,7 +113,7 @@ async function applyInitialStock(
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ stockId: stock._id, quantityOnHand: qty }),
-          }).then(() => {})
+          }).then(() => { })
         );
       }
     });
@@ -135,6 +135,7 @@ const formSchema = z.object({
     .min(0, "Mínimo 0"),
   marca: z.string().optional(),
   modelo: z.string().optional(),
+  internalCode: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -186,6 +187,7 @@ export function CreateProductForm() {
       profitPercent: "" as unknown as number,
       marca: "",
       modelo: "",
+      internalCode: "",
     },
   });
 
@@ -220,6 +222,7 @@ export function CreateProductForm() {
         profitPercent: values.profitPercent,
         marca: values.marca || undefined,
         modelo: values.modelo || undefined,
+        internalCode: values.internalCode || undefined,
         hasVariants,
         attributeSchema: hasVariants ? attributeSchema : [],
         variants: hasVariants ? variantRows : undefined,
@@ -351,6 +354,23 @@ export function CreateProductForm() {
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="internalCode"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Código interno {" "}
+                    <span className="text-muted-foreground text-xs font-normal">
+                      (opcional)
+                    </span></FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ej. INT-00123" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </div>
 
           {/* ── Galería de imágenes ─────────────────────────────────── */}

@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
         profitPercent: body.profitPercent !== undefined && body.profitPercent !== "" ? Number(body.profitPercent) : undefined,
         marca: body.marca || undefined,
         modelo: body.modelo || undefined,
+        internalCode: body.internalCode || undefined,
         hasVariants: true,
         attributeSchema: body.attributeSchema ?? [],
         gallery: Array.isArray(body.gallery) ? body.gallery : [],
@@ -51,6 +52,7 @@ export async function POST(request: NextRequest) {
       profitPercent: body.profitPercent !== undefined && body.profitPercent !== "" ? Number(body.profitPercent) : undefined,
       marca: body.marca || undefined,
       modelo: body.modelo || undefined,
+      internalCode: body.internalCode || undefined,
       gallery: Array.isArray(body.gallery) ? body.gallery : [],
     });
 

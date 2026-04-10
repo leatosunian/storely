@@ -11,6 +11,7 @@ export interface CreateProductDTO {
   nombre: string;
   marca?: string;
   modelo?: string;
+  internalCode?: string;
   categoryId: Types.ObjectId | string;
   categoryPath: string;
   listPrice: number;
@@ -78,6 +79,7 @@ export interface CreateProductWithVariantsDTO {
   nombre: string;
   marca?: string;
   modelo?: string;
+  internalCode?: string;
   categoryId: Types.ObjectId | string;
   categoryPath: string;
   listPrice: number;

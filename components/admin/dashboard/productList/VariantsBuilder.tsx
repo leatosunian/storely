@@ -62,6 +62,40 @@ function slugify(str: string) {
     .replace(/^-|-$/g, "");
 }
 
+// Stopwords ignored when abbreviating product names for SKUs
+const SKU_STOP_WORDS = new Set([
+  "de", "del", "con", "sin", "para", "el", "la", "los", "las",
+  "y", "o", "a", "en", "por", "un", "una", "the", "of", "and", "to", "for",
+]);
+
+/**
+ * Abbreviate a product name into a short SKU prefix.
+ * Takes up to `maxWords` meaningful words, each truncated to `charsPerWord` chars.
+ * e.g. "Bordeadora Black Decker 27 5cm De Corte" → "BORD-BLAC-DECK"
+ */
+function abbreviateName(name: string, maxWords = 3, charsPerWord = 4): string {
+  if (!name) return "PROD";
+  const words = slugify(name).split("-").filter((w) => w && !SKU_STOP_WORDS.has(w));
+  if (words.length === 0) return "PROD";
+  return words
+    .slice(0, maxWords)
+    .map((w) => w.slice(0, charsPerWord))
+    .join("-")
+    .toUpperCase();
+}
+
+/** Abbreviate a single attribute value to keep variant SKUs compact. */
+function abbreviateValue(value: string, chars = 4): string {
+  return slugify(value).slice(0, chars).toUpperCase();
+}
+
+/** Build a compact SKU from product name + ordered attribute values. */
+function buildSku(productName: string, attributeValues: string[]): string {
+  const namePart = abbreviateName(productName);
+  const variantPart = attributeValues.map((v) => abbreviateValue(v)).filter(Boolean).join("-");
+  return variantPart ? `${namePart}-${variantPart}` : namePart;
+}
+
 function buildRows(axes: AttributeAxis[], productName: string, existing: VariantRow[], basePrice?: number): VariantRow[] {
   const validAxes = axes.filter((a) => a.key.trim() && a.valuesRaw.trim());
   if (validAxes.length === 0) return [];
@@ -93,7 +127,7 @@ function buildRows(axes: AttributeAxis[], productName: string, existing: Variant
     keys.forEach((k, i) => (attributes[k] = combo[i]));
 
     const comboKey = combo.map(slugify).join("-");
-    const autoSku = `${slugify(productName || "prod")}-${comboKey}`.toUpperCase();
+    const autoSku = buildSku(productName, combo);
 
     const existingRow = existing.find(
       (r) =>
@@ -196,10 +230,10 @@ export function VariantsBuilder({ productName = "", basePrice, onChange }: Varia
 
   function regenerateSkus() {
     setRows((prev) =>
-      prev.map((r) => {
-        const comboKey = Object.values(r.attributes).map(slugify).join("-");
-        return { ...r, sku: `${slugify(productName || "prod")}-${comboKey}`.toUpperCase() };
-      })
+      prev.map((r) => ({
+        ...r,
+        sku: buildSku(productName, Object.values(r.attributes)),
+      }))
     );
   }
 

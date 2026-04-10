@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -34,6 +33,16 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { LocaleNumberInput } from "@/components/admin/dashboard/productList/LocaleNumberInput";
 import { IProduct, IProductImage } from "@/interfaces/IProduct";
@@ -64,6 +73,7 @@ const formSchema = z.object({
     .min(0, "Mínimo 0"),
   marca: z.string().optional(),
   modelo: z.string().optional(),
+  internalCode: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -172,8 +182,8 @@ function StockSection({ productId }: { productId: string }) {
           variant.isDefault
             ? "Sin variante"
             : Object.entries(variant.attributes)
-                .map(([k, v]) => `${k}: ${v}`)
-                .join(" / ");
+              .map(([k, v]) => `${k}: ${v}`)
+              .join(" / ");
 
         return (
           <div key={variant._id}>
@@ -271,6 +281,11 @@ export default function EditProductPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
   const [gallery, setGallery] = useState<IProductImage[]>([]);
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
+  const pendingNavigation = useRef<string | null>(null);
+  const isPopstateNav = useRef(false);
+  const hasGuardRef = useRef(false);
+  const initialGalleryRef = useRef<IProductImage[]>([]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -281,6 +296,7 @@ export default function EditProductPage() {
       profitPercent: 0,
       marca: "",
       modelo: "",
+      internalCode: "",
     },
   });
 
@@ -299,7 +315,9 @@ export default function EditProductPage() {
       .then(([tree, prod]) => {
         setCategories(Array.isArray(tree) ? tree : []);
         setProduct(prod);
-        setGallery(Array.isArray(prod.gallery) ? prod.gallery : []);
+        const initialGallery = Array.isArray(prod.gallery) ? prod.gallery : [];
+        setGallery(initialGallery);
+        initialGalleryRef.current = initialGallery;
         form.reset({
           nombre: prod.nombre ?? "",
           categoryId: prod.categoryId?.toString() ?? "",
@@ -307,6 +325,7 @@ export default function EditProductPage() {
           profitPercent: prod.profitPercent ?? 0,
           marca: prod.marca ?? "",
           modelo: prod.modelo ?? "",
+          internalCode: prod.internalCode ?? "",
         });
       })
       .catch(() => {
@@ -317,6 +336,113 @@ export default function EditProductPage() {
   }, [productId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const flatCats = flattenCategories(categories);
+
+  const galleryChanged =
+    JSON.stringify(gallery) !== JSON.stringify(initialGalleryRef.current);
+  const hasUnsavedChanges = form.formState.isDirty || galleryChanged;
+
+  // Keep a ref so event-handler closures always see the latest value
+  const dirtyRef = useRef(false);
+  dirtyRef.current = hasUnsavedChanges;
+
+  // Push a guard history entry when form becomes dirty.
+  // Back/forward will land on the real entry (same URL) instead of leaving.
+  useEffect(() => {
+    if (hasUnsavedChanges && !hasGuardRef.current) {
+      window.history.pushState({ __unsavedGuard: true }, "", window.location.href);
+      hasGuardRef.current = true;
+    }
+  }, [hasUnsavedChanges]);
+
+  // Block browser/tab close
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (dirtyRef.current) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, []);
+
+  // Intercept clicks on <a> tags (capture phase) — catches Next.js <Link> from sidebar etc.
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      // Only intercept left-clicks without modifier keys
+      if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+
+      const anchor = (e.target as HTMLElement).closest("a");
+      if (!anchor) return;
+
+      const href = anchor.getAttribute("href");
+      if (!href || href.startsWith("http") || href.startsWith("#")) return;
+
+      // Same page — don't block
+      if (href === window.location.pathname) return;
+
+      if (dirtyRef.current) {
+        e.preventDefault();
+        e.stopPropagation();
+        isPopstateNav.current = false;
+        pendingNavigation.current = href;
+        setShowUnsavedDialog(true);
+      }
+    };
+
+    document.addEventListener("click", handler, true); // capture phase
+    return () => document.removeEventListener("click", handler, true);
+  }, []);
+
+  // Intercept browser back/forward (popstate)
+  // Because we pushed a guard entry (same URL) when the form became dirty,
+  // back/forward lands on the real entry — same URL, same page.
+  // Next.js sees the same route and does nothing. We re-push a guard and show the dialog.
+  useEffect(() => {
+    const handlePopState = () => {
+      if (!dirtyRef.current) return;
+
+      // Re-push the guard so the next back press is also caught
+      window.history.pushState({ __unsavedGuard: true }, "", window.location.href);
+
+      // Show the dialog
+      isPopstateNav.current = true;
+      pendingNavigation.current = null;
+      setShowUnsavedDialog(true);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  const navigateAway = (href: string) => {
+    if (hasUnsavedChanges) {
+      isPopstateNav.current = false;
+      pendingNavigation.current = href;
+      setShowUnsavedDialog(true);
+    } else {
+      router.push(href);
+    }
+  };
+
+  const discardAndNavigate = () => {
+    // Reset dirty state so guards and interceptors won't block again
+    form.reset();
+    initialGalleryRef.current = gallery;
+    dirtyRef.current = false;
+    hasGuardRef.current = false;
+    setShowUnsavedDialog(false);
+
+    if (isPopstateNav.current) {
+      // For browser back/forward: go back past the guard entry to actually leave.
+      // History: [..., /prev-page(A), /edit(B), /edit(guard)] — we're on guard.
+      // go(-2) skips guard + real entry → lands on A.
+      isPopstateNav.current = false;
+      window.history.go(-2);
+    } else if (pendingNavigation.current) {
+      router.push(pendingNavigation.current);
+      pendingNavigation.current = null;
+    }
+  };
 
   const handleSubmit = async (values: FormValues) => {
     const selectedCat = flatCats.find((c) => c._id === values.categoryId);
@@ -337,6 +463,8 @@ export default function EditProductPage() {
       }
       const updated = await res.json();
       setProduct(updated);
+      initialGalleryRef.current = gallery;
+      form.reset(values);
       toast({ description: `¡Producto "${values.nombre}" actualizado!` });
     } catch (err: any) {
       toast({ description: err.message || "Error al actualizar.", variant: "destructive" });
@@ -360,14 +488,20 @@ export default function EditProductPage() {
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
-              <BreadcrumbLink className="text-xs" asChild>
-                <Link href="/admin/dashboard/products">Inicio</Link>
+              <BreadcrumbLink
+                className="text-xs cursor-pointer"
+                onClick={() => navigateAway("/admin/dashboard/products")}
+              >
+                Inicio
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbLink className="text-xs" asChild>
-                <Link href="/admin/dashboard/products">Productos</Link>
+              <BreadcrumbLink
+                className="text-xs cursor-pointer"
+                onClick={() => navigateAway("/admin/dashboard/products")}
+              >
+                Productos
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
@@ -384,155 +518,230 @@ export default function EditProductPage() {
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleSubmit)}>
-          <div className="max-w-2xl space-y-6">
 
-            {/* ── Datos básicos ─────────────────────────────────────────── */}
-            <div className="border rounded-lg p-6 bg-background space-y-5">
+          {/* ── Two-column layout: Gallery (left) + Product data (right) ── */}
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.2fr] gap-6">
+
+            {/* ── Left column: Gallery ──────────────────────────────────── */}
+            <div className="border rounded-lg p-6 bg-background space-y-4">
               <div className="flex items-center gap-2">
-                <Package size={17} className="text-muted-foreground" />
-                <h3 className="text-sm font-semibold">Datos del producto</h3>
-              </div>
-
-              <FormField
-                control={form.control}
-                name="nombre"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nombre del producto</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Ej. BIOBIZZ CALMAG (500 ML)" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="categoryId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Categoría</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona una categoría" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {flatCats.map((cat) => (
-                          <SelectItem key={cat._id} value={cat._id}>
-                            {"\u00a0".repeat(cat.depth * 3)}
-                            {cat.depth > 0 ? "└ " : ""}
-                            {cat.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="marca"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        Marca{" "}
-                        <span className="text-muted-foreground text-xs font-normal">(opcional)</span>
-                      </FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ej. Samsung" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="modelo"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        Modelo{" "}
-                        <span className="text-muted-foreground text-xs font-normal">(opcional)</span>
-                      </FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ej. XR-500" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
-
-            {/* ── Precios ───────────────────────────────────────────────── */}
-            <div className="border rounded-lg p-6 bg-background space-y-5">
-              <h3 className="text-sm font-semibold">Precios</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="listPrice"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Precio de lista</FormLabel>
-                      <FormControl>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-muted-foreground font-semibold shrink-0">$</span>
-                          <LocaleNumberInput
-                            placeholder="0,00"
-                            {...field}
-                          />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="profitPercent"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>% Ganancia</FormLabel>
-                      <FormControl>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-muted-foreground font-semibold shrink-0">%</span>
-                          <LocaleNumberInput
-                            placeholder="30"
-                            {...field}
-                          />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              {computedPublicPrice !== null && (
-                <div className="flex items-center justify-between rounded-md bg-muted/40 px-4 py-3 border">
-                  <span className="text-sm text-muted-foreground">Precio al público estimado</span>
-                  <span className="text-base font-semibold">
-                    {new Intl.NumberFormat("es-AR", {
-                      style: "currency",
-                      currency: "ARS",
-                    }).format(computedPublicPrice)}
-                  </span>
+                <ImageIcon size={17} className="text-muted-foreground" />
+                <div>
+                  <h3 className="text-sm font-semibold">Imágenes</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Subí fotos del producto. La primera será la imagen principal.
+                  </p>
                 </div>
-              )}
+              </div>
+              <Separator />
+              <ProductGallery value={gallery} onChange={setGallery} />
             </div>
 
-            {/* ── Submit ────────────────────────────────────────────────── */}
-            <div className="flex items-center justify-end gap-3">
+            {/* ── Right column: Product data + Prices ──────────────────── */}
+            <div className="space-y-6">
+
+              {/* ── Datos básicos ── */}
+              <div className="border rounded-lg p-6 bg-background space-y-5">
+                <div className="flex items-center gap-2">
+                  <Package size={17} className="text-muted-foreground" />
+                  <h3 className="text-sm font-semibold">Datos del producto</h3>
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="nombre"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nombre del producto</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ej. BIOBIZZ CALMAG (500 ML)" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="categoryId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Categoría</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecciona una categoría" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {flatCats.map((cat) => (
+                            <SelectItem key={cat._id} value={cat._id}>
+                              {"\u00a0".repeat(cat.depth * 3)}
+                              {cat.depth > 0 ? "└ " : ""}
+                              {cat.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="marca"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          Marca{" "}
+                          <span className="text-muted-foreground text-xs font-normal">(opcional)</span>
+                        </FormLabel>
+                        <FormControl>
+                          <Input placeholder="Ej. Samsung" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="modelo"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          Modelo{" "}
+                          <span className="text-muted-foreground text-xs font-normal">(opcional)</span>
+                        </FormLabel>
+                        <FormControl>
+                          <Input placeholder="Ej. XR-500" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="internalCode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Código interno{" "}
+                        <span className="text-muted-foreground text-xs font-normal">
+                          (opcional)
+                        </span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ej. INT-00123" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* ── Precios ── */}
+              <div className="border rounded-lg p-6 bg-background space-y-5">
+                <h3 className="text-sm font-semibold">Precios</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="listPrice"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Precio de lista</FormLabel>
+                        <FormControl>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground font-semibold shrink-0">$</span>
+                            <LocaleNumberInput
+                              placeholder="0,00"
+                              {...field}
+                            />
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="profitPercent"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>% Ganancia</FormLabel>
+                        <FormControl>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground font-semibold shrink-0">%</span>
+                            <LocaleNumberInput
+                              placeholder="30"
+                              {...field}
+                            />
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {computedPublicPrice !== null && (
+                  <div className="flex items-center justify-between rounded-md bg-muted/40 px-4 py-3 border">
+                    <span className="text-sm text-muted-foreground">Precio al público estimado</span>
+                    <span className="text-base font-semibold">
+                      {new Intl.NumberFormat("es-AR", {
+                        style: "currency",
+                        currency: "ARS",
+                      }).format(computedPublicPrice)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* ── Variantes ─────────────────────────────────────────────────────── */}
+          <div className="mt-6">
+            <div className="border rounded-lg p-6 bg-background space-y-4">
+              <div className="flex items-center gap-2">
+                <Layers size={17} className="text-muted-foreground" />
+                <div>
+                  <h3 className="text-sm font-semibold">Variantes</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Administrá las variantes del producto (talle, color, etc.).
+                  </p>
+                </div>
+              </div>
+              <Separator />
+              <VariantsManager productId={productId} />
+            </div>
+          </div>
+
+          {/* ── Stock ─────────────────────────────────────────────────────────── */}
+          <div className="mt-6 mb-20">
+            <div className="border rounded-lg p-6 bg-background space-y-4">
+              <div className="flex items-center gap-2">
+                <Warehouse size={17} className="text-muted-foreground" />
+                <div>
+                  <h3 className="text-sm font-semibold">Stock por sucursal</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Ajustá las unidades en stock por variante y sucursal.
+                  </p>
+                </div>
+              </div>
+              <Separator />
+              <StockSection productId={productId} />
+            </div>
+          </div>
+
+          {/* ── Sticky bottom bar ─────────────────────────────────────────────── */}
+          <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+            <div className="flex items-center justify-end gap-3 px-6 py-3">
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => router.push("/admin/dashboard/products")}
+                onClick={() => navigateAway("/admin/dashboard/products")}
                 disabled={isSubmitting}
               >
                 Cancelar
@@ -546,56 +755,54 @@ export default function EditProductPage() {
         </form>
       </Form>
 
-      {/* ── Galería de imágenes ─────────────────────────────────────────── */}
-      <div className="max-w-2xl mt-6">
-        <div className="border rounded-lg p-6 bg-background space-y-4">
-          <div className="flex items-center gap-2">
-            <ImageIcon size={17} className="text-muted-foreground" />
-            <div>
-              <h3 className="text-sm font-semibold">Imágenes</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Subí fotos del producto. La primera será la imagen principal.
-              </p>
-            </div>
-          </div>
-          <Separator />
-          <ProductGallery value={gallery} onChange={setGallery} />
-        </div>
-      </div>
-
-      {/* ── Variantes ─────────────────────────────────────────────────────── */}
-      <div className="max-w-2xl mt-6">
-        <div className="border rounded-lg p-6 bg-background space-y-4">
-          <div className="flex items-center gap-2">
-            <Layers size={17} className="text-muted-foreground" />
-            <div>
-              <h3 className="text-sm font-semibold">Variantes</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Administrá las variantes del producto (talle, color, etc.).
-              </p>
-            </div>
-          </div>
-          <Separator />
-          <VariantsManager productId={productId} />
-        </div>
-      </div>
-
-      {/* ── Stock ─────────────────────────────────────────────────────────── */}
-      <div className="max-w-2xl mt-6 mb-10">
-        <div className="border rounded-lg p-6 bg-background space-y-4">
-          <div className="flex items-center gap-2">
-            <Warehouse size={17} className="text-muted-foreground" />
-            <div>
-              <h3 className="text-sm font-semibold">Stock por sucursal</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Ajustá las unidades en stock por variante y sucursal.
-              </p>
-            </div>
-          </div>
-          <Separator />
-          <StockSection productId={productId} />
-        </div>
-      </div>
+      <AlertDialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cambios sin guardar</AlertDialogTitle>
+            <AlertDialogDescription>
+              Realizaste cambios que no fueron guardados. ¿Querés guardarlos antes de salir?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+            <AlertDialogCancel
+              onClick={() => {
+                pendingNavigation.current = null;
+                isPopstateNav.current = false;
+              }}
+            >
+              Cancelar
+            </AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={discardAndNavigate}
+            >
+              Descartar
+            </Button>
+            <AlertDialogAction
+              onClick={() => {
+                const wasPopstate = isPopstateNav.current;
+                const target = pendingNavigation.current;
+                setShowUnsavedDialog(false);
+                form.handleSubmit(async (values) => {
+                  await handleSubmit(values);
+                  // After save, dirty state is reset — safe to navigate
+                  hasGuardRef.current = false;
+                  if (wasPopstate) {
+                    isPopstateNav.current = false;
+                    window.history.go(-2);
+                  } else if (target) {
+                    router.push(target);
+                    pendingNavigation.current = null;
+                  }
+                })();
+              }}
+            >
+              Guardar cambios
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

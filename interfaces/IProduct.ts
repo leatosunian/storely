@@ -19,6 +19,7 @@ export interface IProduct extends Document {
   nombre: string;
   marca?: string;
   modelo?: string;
+  internalCode?: string;
   categoryId: Types.ObjectId;
   categoryPath: string;
   listPrice: number;

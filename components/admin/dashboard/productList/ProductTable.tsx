@@ -58,6 +58,7 @@ import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { TableSmall, TableSmallBody, TableSmallCaption, TableSmallCell, TableSmallHead, TableSmallHeader, TableSmallRow } from "@/components/ui/tablesmall";
 import { CgPlayListRemove } from "react-icons/cg";
+import { useRouter } from "next/navigation";
 
 interface ProductTableProps {
   data: IProduct[];
@@ -68,6 +69,7 @@ interface ProductTableProps {
 }
 
 export function ProductTable({ data, onEdit, onDelete, onModifyPrices, onCopyPrice }: ProductTableProps) {
+  const router = useRouter();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
@@ -315,6 +317,12 @@ export function ProductTable({ data, onEdit, onDelete, onModifyPrices, onCopyPri
                     <TableRow
                       key={row.id}
                       data-state={row.getIsSelected() && "selected"}
+                      className="cursor-pointer"
+                      onClick={(e) => {
+                        const target = e.target as HTMLElement;
+                        if (target.closest('button, input, [role="checkbox"], [role="menuitem"], [data-radix-collection-item]')) return;
+                        router.push(`/admin/dashboard/products/${row.original._id}/edit`);
+                      }}
                     >
                       {row.getVisibleCells().map((cell) => (
                         <TableCell key={cell.id}>
