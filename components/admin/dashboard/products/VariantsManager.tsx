@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { LocaleNumberInput } from "@/components/admin/dashboard/productList/LocaleNumberInput";
+import { LocaleNumberInput } from "@/components/admin/dashboard/products/LocaleNumberInput";
 import {
   AlertDialog,
   AlertDialogAction,

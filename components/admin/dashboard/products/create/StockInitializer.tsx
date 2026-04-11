@@ -17,7 +17,7 @@
 import React from "react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { VariantRow } from "@/components/admin/dashboard/productList/VariantsBuilder";
+import { VariantRow } from "@/components/admin/dashboard/products/create/VariantsBuilder";
 
 export interface Branch {
   _id: string;

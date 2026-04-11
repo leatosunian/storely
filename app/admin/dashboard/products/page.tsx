@@ -6,8 +6,8 @@ import { IoMdAdd } from "react-icons/io";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { IProduct } from "@/interfaces/IProduct";
-import { ProductTable } from "@/components/admin/dashboard/productList/ProductTable";
-import { ProductDeleteDialog } from "@/components/admin/dashboard/productList/ProductDeleteDialog";
+import { ProductTable } from "@/components/admin/dashboard/products/ProductTable";
+import { ProductDeleteDialog } from "@/components/admin/dashboard/products/ProductDeleteDialog";
 import Link from "next/link";
 import {
   Breadcrumb,

@@ -325,8 +325,9 @@ export default function CategoriesPage() {
       <AlertDialog
         open={pendingDelete !== null}
         onOpenChange={(open) => { if (!open) setPendingDelete(null); }}
+        
       >
-        <AlertDialogContent>
+        <AlertDialogContent >
           <AlertDialogHeader>
             <AlertDialogTitle>
               Eliminar &ldquo;{pendingDelete?.name}&rdquo;

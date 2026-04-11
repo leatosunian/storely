@@ -9,7 +9,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { CustomerTable } from "./components/CustomerTable";
+import { CustomerTable } from "@/components/admin/dashboard/customers/CustomerTable";
 
 export default function CustomersPage() {
   return (

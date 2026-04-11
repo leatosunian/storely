@@ -7,7 +7,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { CreateProductForm } from "@/components/admin/dashboard/productList/CreateProductForm";
+import  CreateProductForm  from "@/components/admin/dashboard/products/create/CreateProductForm";
 
 export default function NewProductPage() {
   return (

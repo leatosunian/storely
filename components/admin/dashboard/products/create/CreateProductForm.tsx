@@ -27,17 +27,17 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Package, Layers, Warehouse, ImageIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { ProductGallery } from "@/components/admin/dashboard/productList/ProductGallery";
-import { LocaleNumberInput } from "@/components/admin/dashboard/productList/LocaleNumberInput";
+import { ProductGallery } from "@/components/admin/dashboard/products/ProductGallery";
+import { LocaleNumberInput } from "@/components/admin/dashboard/products/LocaleNumberInput";
 import {
   VariantsBuilder,
   VariantRow,
-} from "@/components/admin/dashboard/productList/VariantsBuilder";
+} from "@/components/admin/dashboard/products/create/VariantsBuilder";
 import {
   StockInitializer,
   StockInputMap,
   Branch,
-} from "@/components/admin/dashboard/productList/StockInitializer";
+} from "@/components/admin/dashboard/products/create/StockInitializer";
 import { IAttributeDefinition, IProductImage } from "@/interfaces/IProduct";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -142,7 +142,7 @@ type FormValues = z.infer<typeof formSchema>;
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-export function CreateProductForm() {
+export default function CreateProductForm() {
   const router = useRouter();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);

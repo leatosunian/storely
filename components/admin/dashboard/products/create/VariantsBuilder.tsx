@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { IAttributeDefinition } from "@/interfaces/IProduct";
-import { LocaleNumberInput } from "@/components/admin/dashboard/productList/LocaleNumberInput";
+import { LocaleNumberInput } from "@/components/admin/dashboard/products/LocaleNumberInput";
 
 export interface VariantRow {
   /** local key used for React lists — not sent to API */
