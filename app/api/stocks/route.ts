@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ msg: "productId is required" }, { status: 400 });
   }
 
-  // Branch-specific: return per-variant stock at a specific branch
+  // case branch: retorna stock por variante de producto en sucursal seleccionada
   if (branchId) {
     try {
       const result = await getStockByProductAndBranch(productId, branchId);
@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // case general: retorna stock por variante de producto en cad una de las sucursales
   try {
     const variants = await VariantModel.find({ productId, isActive: true }).lean();
 
