@@ -1,5 +1,7 @@
 import { Document, Types } from "mongoose";
 
+export type ShippingType = "delivery" | "pickup";
+
 export type OrderStatus =
   | "pending"
   | "confirmed"
@@ -10,7 +12,25 @@ export type OrderStatus =
   | "refunded";
 
 export type PaymentStatus = "pending" | "paid" | "partial" | "refunded" | "failed";
-export type PaymentMethod = "cash" | "transfer" | "card" | "mercadopago" | "other";
+export type PaymentMethod =
+  | "cash"
+  | "transfer"
+  | "debit_card"
+  | "credit_card"
+  | "mercadopago"
+  | "modo"
+  | "uala"
+  | "naranja_x"
+  | "personal_pay"
+  | "cuenta_dni"
+  | "qr"
+  | "cheque"
+  | "other";
+
+export interface IInstallments {
+  quantity: number;
+  withInterest: boolean;
+}
 
 export interface IOrderItem {
   productId: Types.ObjectId;
@@ -38,7 +58,9 @@ export interface IOrder extends Document {
   status: OrderStatus;
   paymentStatus: PaymentStatus;
   paymentMethod?: PaymentMethod;
+  installments?: IInstallments;
   notes?: string;
+  shippingType?: ShippingType;
   shippingAddress?: {
     street: string;
     city: string;
@@ -46,6 +68,7 @@ export interface IOrder extends Document {
     postalCode?: string;
     country: string;
   };
+  pickupBranchId?: Types.ObjectId;
   cancelReason?: string;
   statusHistory: Array<{
     status: OrderStatus;

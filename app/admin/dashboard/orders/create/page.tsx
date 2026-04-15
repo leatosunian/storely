@@ -7,7 +7,7 @@ import {
     BreadcrumbPage,
     BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { CreateOrderComp } from "@/components/admin/dashboard/orders/CreateOrderComp";
+import CreateOrderForm from "@/components/admin/dashboard/orders/create/CreateOrderForm";
 
 export default function CreateOrderPage() {
     return (
@@ -39,7 +39,7 @@ export default function CreateOrderPage() {
                 </div>
             </div>
 
-            <CreateOrderComp />
+            <CreateOrderForm />
         </>
     );
 }

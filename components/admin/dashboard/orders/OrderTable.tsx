@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { OrderStatusBadge } from "./OrderStatusBadge";
 import type { OrderStatus } from "@/interfaces/IOrder";
 import {
@@ -52,6 +53,7 @@ const ORDER_STATUSES: OrderStatus[] = [
 ];
 
 export function OrderTable() {
+  const router = useRouter();
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [meta, setMeta] = useState<Omit<PaginatedOrders, "data">>({ total: 0, pages: 1, page: 1 });
   const [loading, setLoading] = useState(true);
@@ -146,7 +148,11 @@ export function OrderTable() {
                 </TableCell>
               </TableRow>
             ) : filteredOrders.map((order) => (
-              <TableRow key={order._id}>
+              <TableRow
+                key={order._id}
+                className="cursor-pointer hover:bg-muted/60 transition-colors"
+                onClick={() => router.push(`/admin/dashboard/orders/${order._id}`)}
+              >
                 <TableCell className="font-mono text-xs">{order.orderNumber}</TableCell>
                 <TableCell>
                   <div className="font-medium text-sm">{order.customerId.firstName} {order.customerId.lastName}</div>
@@ -155,15 +161,30 @@ export function OrderTable() {
                 <TableCell className="font-medium text-sm">${order.total.toLocaleString("es-AR")}</TableCell>
                 <TableCell><OrderStatusBadge status={order.status} /></TableCell>
                 <TableCell>
-                  <span className={`text-xs ${order.paymentStatus === "paid" ? "text-green-600 dark:text-green-400" : "text-yellow-600 dark:text-yellow-400"}`}>
-                    {order.paymentStatus}
+                  <span className={`text-xs font-medium ${
+                    order.paymentStatus === "paid"
+                      ? "text-emerald-500"
+                      : order.paymentStatus === "partial"
+                      ? "text-blue-400"
+                      : order.paymentStatus === "failed"
+                      ? "text-red-400"
+                      : "text-amber-500"
+                  }`}>
+                    {order.paymentStatus === "paid" ? "Pagado"
+                      : order.paymentStatus === "partial" ? "Parcial"
+                      : order.paymentStatus === "failed" ? "Fallido"
+                      : order.paymentStatus === "refunded" ? "Reembolsado"
+                      : "Pendiente"}
                   </span>
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
                   {new Date(order.createdAt).toLocaleDateString("es-AR")}
                 </TableCell>
-                <TableCell>
-                  <Link href={`/admin/dashboard/orders/${order._id}`} className="text-blue-600 dark:text-blue-400 hover:underline text-xs">
+                <TableCell onClick={(e) => e.stopPropagation()}>
+                  <Link
+                    href={`/admin/dashboard/orders/${order._id}`}
+                    className="text-primary hover:underline text-xs"
+                  >
                     Ver
                   </Link>
                 </TableCell>

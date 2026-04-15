@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { CreateOrderSchema, OrderQuerySchema } from "@/app/schemas/orderForm";
 import { orderService } from "@/services/orderService";
+import { auth } from "@/auth";
 
 export async function GET(req: NextRequest) {
   try {
@@ -18,9 +19,11 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const session = await auth();
     const body  = await req.json();
     const data  = CreateOrderSchema.parse(body);
-    const order = await orderService.create(data);
+    const employeeId = (session?.user as any)?.id || undefined;
+    const order = await orderService.create({ ...data, employeeId });
     return NextResponse.json({ success: true, data: order }, { status: 201 });
   } catch (err) {
     if (err instanceof ZodError)

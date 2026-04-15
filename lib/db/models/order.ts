@@ -18,8 +18,8 @@ const OrderItemSchema = new Schema<IOrderItem>(
 const OrderSchema = new Schema<IOrder>(
   {
     orderNumber:  { type: String, required: true, unique: true },
-    customerId:   { type: Schema.Types.ObjectId, ref: "Customer", required: true },
-    branchId:     { type: Schema.Types.ObjectId, ref: "Branch", required: true },
+    customerId:   { type: Schema.Types.ObjectId, ref: "customers", required: true },
+    branchId:     { type: Schema.Types.ObjectId, ref: "branches", required: true },
     employeeId:   { type: Schema.Types.ObjectId, ref: "admin_users" },
     items:        { type: [OrderItemSchema], required: true, validate: (v: IOrderItem[]) => v.length > 0 },
     subtotal:     { type: Number, required: true, min: 0 },
@@ -39,10 +39,16 @@ const OrderSchema = new Schema<IOrder>(
     },
     paymentMethod: {
       type: String,
-      enum: ["cash","transfer","card","mercadopago","other"],
+      enum: ["cash","transfer","debit_card","credit_card","mercadopago","modo","uala","naranja_x","personal_pay","cuenta_dni","qr","cheque","other"],
+    },
+    installments: {
+      quantity:     { type: Number, min: 1, max: 60 },
+      withInterest: { type: Boolean },
     },
     notes:          { type: String, maxlength: 2000 },
+    shippingType:   { type: String, enum: ["delivery", "pickup"] },
     shippingAddress:{ type: Schema.Types.Mixed },
+    pickupBranchId: { type: Schema.Types.ObjectId, ref: "Branch" },
     cancelReason:   { type: String },
     statusHistory:  {
       type: [{
@@ -64,4 +70,4 @@ OrderSchema.index({ paymentStatus: 1 });
 OrderSchema.index({ createdAt: -1 });
 
 export const OrderModel =
-  models.Order ?? model<IOrder>("Order", OrderSchema);
+  models.orders ?? model<IOrder>("orders", OrderSchema);

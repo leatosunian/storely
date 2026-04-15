@@ -2,16 +2,28 @@ import connectDB from "@/lib/db/db";
 import { NextRequest, NextResponse } from "next/server";
 import StockModel from "@/lib/db/models/stock";
 import VariantModel from "@/lib/db/models/variant";
+import { getStockByProductAndBranch } from "@/services/productService";
 
-// GET /api/stocks?productId=xxx
-// Returns all variants with their stock entries per branch
+// GET /api/stocks?productId=xxx              → all variants, all branches
+// GET /api/stocks?productId=xxx&branchId=yyy → per-variant stock at specific branch
 export async function GET(request: NextRequest) {
   await connectDB();
   const { searchParams } = new URL(request.url);
   const productId = searchParams.get("productId");
+  const branchId = searchParams.get("branchId");
 
   if (!productId) {
     return NextResponse.json({ msg: "productId is required" }, { status: 400 });
+  }
+
+  // Branch-specific: return per-variant stock at a specific branch
+  if (branchId) {
+    try {
+      const result = await getStockByProductAndBranch(productId, branchId);
+      return NextResponse.json(result);
+    } catch {
+      return NextResponse.json({ msg: "ERROR_GET_STOCK_BY_BRANCH" }, { status: 500 });
+    }
   }
 
   try {

@@ -3,6 +3,8 @@ import { IOrder } from "@/interfaces/IOrder";
 import connectDB from "@/lib/db/db";
 import { CustomerModel } from "@/lib/db/models/customer";
 import { OrderModel } from "@/lib/db/models/order";
+import StockModel from "@/lib/db/models/stock";
+import VariantModel from "@/lib/db/models/variant";
 import { ClientSession, FilterQuery } from "mongoose";
 import mongoose from "mongoose";
 
@@ -24,7 +26,8 @@ function calcSubtotal(items: CreateOrderDTO["items"]) {
 // Servicio de PEDIDOS con lógica de negocio y transacciones
 class OrderService {
 
-  // Crea nuevo pedido y actualiza las stats del cliente dentro de una transacción
+  // Crea nuevo pedido y actualiza las stats del cliente dentro de una transacción.
+  // También verifica y descuenta el stock de cada ítem.
   async create(data: CreateOrderDTO) {
     await connectDB();
 
@@ -32,6 +35,40 @@ class OrderService {
     session.startTransaction();
 
     try {
+      // ── Paso 1: Resolver variante y verificar stock por ítem ──────────────────
+      const resolvedItems: { item: CreateOrderDTO["items"][number]; variantId: string | null }[] = [];
+
+      for (const item of data.items) {
+        const variantIdStr = item.variantId?.trim() || null;
+        let resolvedVariantId: string | null = variantIdStr;
+
+        if (!resolvedVariantId) {
+          // Producto sin variante explícita → buscar la variante por defecto
+          const defaultVariant = await VariantModel.findOne(
+            { productId: item.productId, isDefault: true, isActive: true },
+            "_id"
+          ).session(session).lean() as { _id: mongoose.Types.ObjectId } | null;
+          resolvedVariantId = defaultVariant?._id?.toString() ?? null;
+        }
+
+        if (resolvedVariantId) {
+          const stock = await StockModel.findOne(
+            { variantId: resolvedVariantId, branchId: data.branchId },
+            "quantityAvailable"
+          ).session(session).lean() as { quantityAvailable: number } | null;
+
+          const available = stock?.quantityAvailable ?? 0;
+          if (available < item.quantity) {
+            throw new Error(
+              `Stock insuficiente para "${item.name}" (disponible: ${available}, solicitado: ${item.quantity})`
+            );
+          }
+        }
+
+        resolvedItems.push({ item, variantId: resolvedVariantId });
+      }
+
+      // ── Paso 2: Calcular totales ──────────────────────────────────────────────
       const items = data.items.map((item) => ({
         ...item,
         subtotal: +(item.unitPrice * item.quantity * (1 - item.discount / 100)).toFixed(2),
@@ -41,6 +78,7 @@ class OrderService {
       const discountTotal = +(items.reduce((a, i) => a + i.unitPrice * i.quantity * (i.discount / 100), 0)).toFixed(2);
       const total = +(subtotal + (data.tax ?? 0) + (data.shippingCost ?? 0)).toFixed(2);
 
+      // ── Paso 3: Crear el pedido ───────────────────────────────────────────────
       const [order] = await OrderModel.create(
         [{
           ...data,
@@ -54,7 +92,7 @@ class OrderService {
         { session }
       );
 
-      // Actualizar stats del cliente dentro de la transacción
+      // ── Paso 4: Actualizar stats del cliente ──────────────────────────────────
       await CustomerModel.findByIdAndUpdate(
         data.customerId,
         {
@@ -63,6 +101,19 @@ class OrderService {
         },
         { session }
       );
+
+      // ── Paso 5: Descontar stock de cada ítem ──────────────────────────────────
+      for (const { item, variantId } of resolvedItems) {
+        if (!variantId) continue;
+        await StockModel.findOneAndUpdate(
+          { variantId, branchId: data.branchId },
+          {
+            $inc: { quantityOnHand: -item.quantity, quantityAvailable: -item.quantity },
+            $set: { lastUpdatedAt: new Date() },
+          },
+          { session }
+        );
+      }
 
       await session.commitTransaction();
       return order;
@@ -149,6 +200,28 @@ class OrderService {
       await CustomerModel.findByIdAndUpdate(order.customerId, {
         $inc: { totalOrders: -1, totalSpent: -order.total },
       });
+    }
+
+    return order.save();
+  }
+
+  // Actualiza el estado de pago y/o método de pago de un pedido
+  async updatePayment(id: string, dto: {
+    paymentStatus: import("@/interfaces/IOrder").PaymentStatus;
+    paymentMethod?: import("@/interfaces/IOrder").PaymentMethod;
+    installments?: import("@/interfaces/IOrder").IInstallments;
+  }) {
+    await connectDB();
+    const order = await OrderModel.findById(id);
+    if (!order) throw new Error("Pedido no encontrado");
+
+    order.paymentStatus = dto.paymentStatus;
+    if (dto.paymentMethod) order.paymentMethod = dto.paymentMethod;
+
+    if (dto.paymentMethod === "credit_card" && dto.installments) {
+      order.installments = dto.installments;
+    } else if (dto.paymentMethod && dto.paymentMethod !== "credit_card") {
+      order.set("installments", undefined);
     }
 
     return order.save();
